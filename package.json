@@ -1,0 +1,10 @@
+{
+  "name": "anime-cloud-strenox-discord-bot",
+  "version": "1.0.0",
+  "description": "Anime Cloud / StrenoxCloud REST API Discord bot",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {"start":"node src/index.js", "deploy":"node src/deploy-commands.js", "check":"node --check src/index.js && node --check src/api.js && node --check src/commands.js"},
+  "engines": {"node": ">=20"},
+  "dependencies": {"discord.js":"^14.19.3", "dotenv":"^16.4.7"}
+}
