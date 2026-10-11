@@ -3,6 +3,7 @@ import { Client, Events, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, Butt
 import { panelRequest, discoverApi, summarize } from './api.js';
 import { canAccessVps } from './access.js';
 import { createSshxSession } from './sshx.js';
+import { createVpsForDiscordUser, formatVpsDetails } from './provision.js';
 
 if (!process.env.DISCORD_TOKEN) { console.error('DISCORD_TOKEN missing. Configure .env first.'); process.exit(1); }
 const adminIds = new Set((process.env.ADMIN_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean));
@@ -23,7 +24,7 @@ client.on(Events.InteractionCreate, async i => {
   if (!i.isChatInputCommand()) return;
   try {
     if (i.commandName === 'ping') return i.reply({ embeds: [makeEmbed('Pong!', `Gateway latency: ${client.ws.ping}ms`)], ephemeral: true });
-    if (i.commandName === 'help') return i.reply({ embeds: [makeEmbed('☁️ Anime Cloud • StrenoxCloud', '/ping — latency\n/panel — API health\n/vps list — list VPSes\n/vps show id:<id> — view VPS\n/vps sshx id:<id> — create an authorized SSHX browser terminal\n/vps action — guarded until route schema is verified\n/apiinfo — probe docs/metadata (admin)\n/adminapi — call documented route (admin)')], ephemeral: true });
+    if (i.commandName === 'help') return i.reply({ embeds: [makeEmbed('☁️ Anime Cloud • StrenoxCloud', '/ping — latency\n/panel — API health\n/vps list — list VPSes\n/vps show id:<id> — view VPS\n/vps sshx id:<id> — create an authorized SSHX browser terminal\n/vps create — request a VPS and receive access details by DM (panel entitlement required)\n/vps action — guarded until route schema is verified\n/apiinfo — probe docs/metadata (admin)\n/adminapi — call documented route (admin)')], ephemeral: true });
     if (i.commandName === 'panel') return await apiReply(i, 'GET', 'health');
     if (i.commandName === 'apiinfo') {
       if (!isAdmin(i)) return i.reply({ content: 'Admin permission required.', ephemeral: true });
@@ -39,6 +40,27 @@ client.on(Events.InteractionCreate, async i => {
         const id = i.options.getString('id', true);
         if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) return i.reply({ content: 'Invalid VPS ID.', ephemeral: true });
         return await apiReply(i, 'GET', `vps/${id}`);
+      }
+      if (sub === 'create') {
+        const plan = i.options.getString('plan', true);
+        const os = i.options.getString('os', true);
+        await i.deferReply({ ephemeral: true });
+        let dm;
+        try {
+          dm = await i.user.createDM();
+          await dm.send({ embeds: [makeEmbed('Anime Cloud • VPS request', 'Your request is being processed. I will send connection details here only after the panel confirms successful provisioning.', 0x5865F2)] });
+        } catch {
+          return i.editReply({ content: 'Please enable direct messages from this server and run /vps create again. No VPS was requested.' });
+        }
+        try {
+          const created = await createVpsForDiscordUser({ user: i.user, plan, os, requestId: i.id });
+          const details = formatVpsDetails(created);
+          await dm.send({ embeds: [makeEmbed('☁️ Anime Cloud • Your VPS is ready', details, 0x57F287)] });
+          return i.editReply({ embeds: [makeEmbed('VPS provisioned', 'The panel confirmed creation. I sent the connection details to your Discord DM. Keep them private.', 0x57F287)] });
+        } catch (e) {
+          console.error(`VPS create failed for Discord user ${i.user.id}: ${e.status || 'network'} ${e.message}`);
+          return i.editReply({ embeds: [makeEmbed('VPS was not confirmed as created', e.message, 0xED4245)] });
+        }
       }
       if (sub === 'sshx') {
         const id = i.options.getString('id', true);
