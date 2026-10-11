@@ -8,6 +8,7 @@ export const commands = [
   new SlashCommandBuilder().setName('vps').setDescription('VPS tools')
     .addSubcommand(s => s.setName('list').setDescription('List VPSes (GET /vps)'))
     .addSubcommand(s => s.setName('show').setDescription('View VPS (GET /vps/{id})').addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true)))
+    .addSubcommand(s => s.setName('sshx').setDescription('Generate a secure browser SSHX terminal session').addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true)))
     .addSubcommand(s => s.setName('action').setDescription('VPS action placeholder; enable after verifying live route schema')
       .addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true))
       .addStringOption(o => o.setName('action').setDescription('Requested action').setRequired(true).addChoices(
