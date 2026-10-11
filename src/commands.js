@@ -9,6 +9,11 @@ export const commands = [
     .addSubcommand(s => s.setName('list').setDescription('List VPSes (GET /vps)'))
     .addSubcommand(s => s.setName('show').setDescription('View VPS (GET /vps/{id})').addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true)))
     .addSubcommand(s => s.setName('sshx').setDescription('Generate a secure browser SSHX terminal session').addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true)))
+    .addSubcommand(s => s.setName('create').setDescription('Create an eligible VPS and DM its connection details')
+      .addStringOption(o => o.setName('plan').setDescription('VPS plan').setRequired(true).addChoices(
+        {name:'Starter (2 GB RAM)',value:'starter'},{name:'Basic (4 GB RAM)',value:'basic'},{name:'Pro (8 GB RAM)',value:'pro'},{name:'Ultra (16 GB RAM)',value:'ultra'}))
+      .addStringOption(o => o.setName('os').setDescription('Operating system image').setRequired(true).addChoices(
+        {name:'Ubuntu 24.04 LTS',value:'ubuntu-24.04'},{name:'Ubuntu 22.04 LTS',value:'ubuntu-22.04'},{name:'Debian 12',value:'debian-12'})))
     .addSubcommand(s => s.setName('action').setDescription('VPS action placeholder; enable after verifying live route schema')
       .addStringOption(o => o.setName('id').setDescription('VPS ID').setRequired(true))
       .addStringOption(o => o.setName('action').setDescription('Requested action').setRequired(true).addChoices(
