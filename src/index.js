@@ -14,7 +14,7 @@ async function apiReply(i, method, path, body) {
   await i.deferReply({ ephemeral: true });
   try {
     const r = await panelRequest(method, path, body);
-    await i.editReply({ embeds: [makeEmbed(`API ${r.status} • ${method} /${path}`, `\\`\\`\\`json\n${summarize(r.data)}\n\\`\\`\\``, 0x57F287)] });
+    await i.editReply({ embeds: [makeEmbed(`API ${r.status} • ${method} /${path}`, summarize(r.data), 0x57F287)] });
   } catch (e) { await i.editReply({ embeds: [makeEmbed(`Panel API error${e.status ? ` • HTTP ${e.status}` : ''}`, e.message, 0xED4245)] }); }
 }
 
