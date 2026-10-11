@@ -85,3 +85,12 @@ pm2 restart anime-cloud-bot
 - `.env.example` contains placeholders only.
 - Do not paste credentials into Discord or public issue trackers.
 - Restrict `/adminapi` to trusted administrators.
+
+
+## SSHX Terminal integration
+
+The bot now includes the `/vps sshx id:<id>` command. It checks the VPS allowlist, requests a fresh session from the panel's SSHX bridge, validates that the returned URL uses HTTPS and an allowed SSHX host, and sends an ephemeral Open SSHX Terminal button. Session URLs are not logged.
+
+**The panel-side bridge must be installed before this command can work end-to-end.** See `panel-integration/README.md`. The bot deliberately does not call the browser-login route directly because a Discord interaction does not have the user's Flask session cookie.
+
+Configure `SSHX_API_PATH_TEMPLATE`, `SSHX_ALLOWED_HOSTS`, and `VPS_ACCESS_MAP` in `.env`. Access is denied to non-admin Discord users unless their ID is explicitly mapped to VPS IDs.
