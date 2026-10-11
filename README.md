@@ -11,7 +11,7 @@ The provided overview lists 94 endpoints and their categories, but does not show
 ## Features
 
 - `/ping`, `/help`, `/panel`
-- `/vps list` and `/vps show`
+- `/vps create plan:<plan> os:<os>` — requests panel-side provisioning and sends connection details by DM only after confirmed success\n- `/vps list` and `/vps show`
 - `/apiinfo` to probe metadata/docs paths
 - `/adminapi` for admin-only calls to documented routes
 - API key sent through `X-API-Key`
@@ -94,3 +94,32 @@ The bot now includes the `/vps sshx id:<id>` command. It checks the VPS allowlis
 **The panel-side bridge must be installed before this command can work end-to-end.** See `panel-integration/README.md`. The bot deliberately does not call the browser-login route directly because a Discord interaction does not have the user's Flask session cookie.
 
 Configure `SSHX_API_PATH_TEMPLATE`, `SSHX_ALLOWED_HOSTS`, and `VPS_ACCESS_MAP` in `.env`. Access is denied to non-admin Discord users unless their ID is explicitly mapped to VPS IDs.
+
+
+## Automatic VPS creation + private DM
+
+The bot command `/vps create plan:<plan> os:<os>` calls the panel bridge `POST /integrations/discord/vps/create`. The bridge is **required**; this bot does not run privileged VM commands on its own. The panel must authenticate the API key, verify the Discord identity against its own customer/payment/plan entitlement records, enforce quotas and node capacity, and provision through the existing trusted LXC/KVM agent. Never trust the selected plan alone as proof of payment.
+
+Expected successful response:
+```json
+{
+  "success": true,
+  "vps": {
+    "id": "vm-123",
+    "name": "ac-user-123",
+    "ip": "203.0.113.10",
+    "ssh_port": 22,
+    "username": "acuser",
+    "initial_password": "ONE_TIME_SECRET",
+    "os": "ubuntu-24.04",
+    "plan": "starter",
+    "ram_mb": 2048,
+    "vcpus": 2,
+    "disk_gb": 50,
+    "status": "running",
+    "password_change_required": true
+  }
+}
+```
+
+The bridge should create a unique Linux account, generate a one-time password, require password rotation at first login, return the secret only once over HTTPS, and never log it. If your panel uses SSH keys instead, change the response contract to return key-installation instructions and never generate or DM a private key. The bot sends the credentials only in DM; it does not log them or show them in the public channel. If the endpoint is not installed, provisioning fails safely and no success is claimed.
