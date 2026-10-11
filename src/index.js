@@ -1,6 +1,8 @@
 import 'dotenv/config';
-import { Client, Events, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { Client, Events, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { panelRequest, discoverApi, summarize } from './api.js';
+import { canAccessVps } from './access.js';
+import { createSshxSession } from './sshx.js';
 
 if (!process.env.DISCORD_TOKEN) { console.error('DISCORD_TOKEN missing. Configure .env first.'); process.exit(1); }
 const adminIds = new Set((process.env.ADMIN_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean));
@@ -12,7 +14,7 @@ async function apiReply(i, method, path, body) {
   await i.deferReply({ ephemeral: true });
   try {
     const r = await panelRequest(method, path, body);
-    await i.editReply({ embeds: [makeEmbed(`API ${r.status} • ${method} /${path}`, `\`\`\`json\n${summarize(r.data)}\n\`\`\``, 0x57F287)] });
+    await i.editReply({ embeds: [makeEmbed(`API ${r.status} • ${method} /${path}`, `\\`\\`\\`json\n${summarize(r.data)}\n\\`\\`\\``, 0x57F287)] });
   } catch (e) { await i.editReply({ embeds: [makeEmbed(`Panel API error${e.status ? ` • HTTP ${e.status}` : ''}`, e.message, 0xED4245)] }); }
 }
 
@@ -21,7 +23,7 @@ client.on(Events.InteractionCreate, async i => {
   if (!i.isChatInputCommand()) return;
   try {
     if (i.commandName === 'ping') return i.reply({ embeds: [makeEmbed('Pong!', `Gateway latency: ${client.ws.ping}ms`)], ephemeral: true });
-    if (i.commandName === 'help') return i.reply({ embeds: [makeEmbed('☁️ Anime Cloud • StrenoxCloud', '`/ping` — latency\n`/panel` — API health\n`/vps list` — list VPSes\n`/vps show id:<id>` — view VPS\n`/vps action` — guarded until route schema is verified\n`/apiinfo` — probe docs/metadata (admin)\n`/adminapi` — call documented route (admin)')], ephemeral: true });
+    if (i.commandName === 'help') return i.reply({ embeds: [makeEmbed('☁️ Anime Cloud • StrenoxCloud', '/ping — latency\n/panel — API health\n/vps list — list VPSes\n/vps show id:<id> — view VPS\n/vps sshx id:<id> — create an authorized SSHX browser terminal\n/vps action — guarded until route schema is verified\n/apiinfo — probe docs/metadata (admin)\n/adminapi — call documented route (admin)')], ephemeral: true });
     if (i.commandName === 'panel') return await apiReply(i, 'GET', 'health');
     if (i.commandName === 'apiinfo') {
       if (!isAdmin(i)) return i.reply({ content: 'Admin permission required.', ephemeral: true });
@@ -38,9 +40,23 @@ client.on(Events.InteractionCreate, async i => {
         if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) return i.reply({ content: 'Invalid VPS ID.', ephemeral: true });
         return await apiReply(i, 'GET', `vps/${id}`);
       }
+      if (sub === 'sshx') {
+        const id = i.options.getString('id', true);
+        if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) return i.reply({ content: 'Invalid VPS ID.', ephemeral: true });
+        if (!canAccessVps(i.user.id, id)) return i.reply({ content: 'You are not authorized for SSHX access to this VPS. Ask the Anime Cloud administrator to grant access.', ephemeral: true });
+        await i.deferReply({ ephemeral: true });
+        try {
+          const url = await createSshxSession(id, i.user.id);
+          const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel('Open SSHX Terminal').setStyle(ButtonStyle.Link).setURL(url));
+          return i.editReply({ embeds: [makeEmbed('Anime Cloud • SSHX Terminal', `A terminal session was created for VPS **${id}**. Treat the link like a password: do not share it.`, 0x57F287)], components: [row] });
+        } catch (e) {
+          console.error(`SSHX session request failed for VPS ${id}: ${e.message}`);
+          return i.editReply({ embeds: [makeEmbed('Could not create SSHX session', e.message, 0xED4245)] });
+        }
+      }
       if (sub === 'action') {
         if (!isAdmin(i)) return i.reply({ content: 'Admin permission required.', ephemeral: true });
-        return i.reply({ embeds: [makeEmbed('Action disabled until verified', 'The provided API overview does not specify the exact HTTP method, route, and payload for VPS actions. Verify the live API route map before enabling this to avoid unintended destructive operations.', 0xFEE75C)], ephemeral: true });
+        return i.reply({ embeds: [makeEmbed('Action disabled until verified', 'The API route and payload for VPS actions have not been verified. Confirm the live API schema before enabling start/stop/restart/reset.', 0xFEE75C)], ephemeral: true });
       }
     }
     if (i.commandName === 'adminapi') {
